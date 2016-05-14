@@ -1,6 +1,11 @@
-import 'package:flutter/material.dart';
-import 'tokenCalculator.dart';
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
+import 'package:flutter/material.dart';
+import 'calc_expression.dart';
+
+// A calculator application.
 void main() {
   runApp(new MaterialApp(
       title: 'Calculator',
@@ -15,229 +20,102 @@ class Calculator extends StatefulWidget {
   _CalculatorState createState() => new _CalculatorState();
 }
 
-enum EntryState {
-  Start, // A new number must be started now
-  LeadingNeg, // A new number without a leading negative must be started now
-  Number, // We are in the midst of a number without a point
-  LeadingPoint, // A new number without a leading negative or point must start
-  NumberWithPoint, // We are in the midst of a number with a point
-  Result, // A result is being displayed
-}
-
 class _CalculatorState extends State<Calculator> {
-  List<String> _keyPressHistory = <String>[];
-  List<EntryState> _entryStateStack = <EntryState>[];
-  List<TokenList> _tokenListStack = <TokenList>[];
-  EntryState _entryState = EntryState.Start;
-  TokenList _tokenList = new TokenList.Empty();
+  // As the user taps keys we update the current |_expression| and we also
+  // keep a stack of previous expressions so we can return to earlier states
+  // when the user hits the DEL key.
+  List<CalcExpression> _expressionStack = <CalcExpression>[];
+  CalcExpression _expression = new CalcExpression.Empty();
 
-  pushState(EntryState state) {
-    _entryStateStack.add(_entryState);
-    _entryState = state;
+  // Make |expression| the current expression and push the previous current
+  // expression onto the stack.
+  pushExpression(CalcExpression expression) {
+    _expressionStack.add(_expression);
+    _expression = expression;
   }
 
-  popState() {
-    if (_entryStateStack.length > 0) {
-      _entryState = _entryStateStack.removeLast();
+  // Pop the top expression off of the stack and make it the current expression.
+  popCalcExpression() {
+    if (_expressionStack.length > 0) {
+      _expression = _expressionStack.removeLast();
     } else {
-      _entryState = EntryState.Start;
+      _expression = new CalcExpression.Empty();
     }
   }
 
-  pushTokenList(TokenList tokenList) {
-    _tokenListStack.add(_tokenList);
-    _tokenList = tokenList;
-  }
-
-  popTokenList() {
-    if ( _tokenListStack.length > 0) {
-      _tokenList =  _tokenListStack.removeLast();
-    } else {
-      _tokenList = new TokenList.Empty();
-    }
-  }
-
-  pushDigit(int digit) {
-    pushTokenList(_tokenList.appendDigit(digit));
-  }
-
-  pushLeadingNeg() {
-    pushTokenList(_tokenList.appendLeadingNeg());
-  }
-
-  pushPoint() {
-    pushTokenList(_tokenList.appendPoint());
-  }
-
-  pushOperation(Operation op) {
-    pushTokenList(_tokenList.appendOperation(op));
-  }
-
-  computeResult() {
-    // TODO(rudominer) Compute the real result.
-    var result = _tokenList.compute();
-    print(_tokenList.toString());
-    _tokenListStack.clear();
-    _keyPressHistory.clear();
-    _keyPressHistory.add("$result");
-    _entryStateStack.clear();
-    _entryState = EntryState.Result;
+  // Set |resultExpression| to the currrent expression and clear the stack.
+  setResult(CalcExpression resultExpression) {
+    _expressionStack.clear();
+    _expression = resultExpression;
   }
 
   onNumberTap(int n) {
-    switch (_entryState) {
-      case EntryState.Start:
-      case EntryState.LeadingNeg:
-      case EntryState.Number:
-        pushState(EntryState.Number);
-        break;
-      case EntryState.LeadingPoint:
-      case EntryState.NumberWithPoint:
-        pushState(EntryState.NumberWithPoint);
-        break;
-      case EntryState.Result:
-        // Cannot enter a number now
-        return;
+    var expression = _expression.appendDigit(n);
+    if (expression != null) {
+      setState(() {
+        pushExpression(expression);
+      });
     }
-    setState(() {
-      pushDigit(n);
-      _keyPressHistory.add("$n");
-    });
   }
 
   onPointTap() {
-    switch (_entryState) {
-      case EntryState.Start:
-      case EntryState.LeadingNeg:
-      case EntryState.Number:
-        pushState(EntryState.LeadingPoint);
-        break;
-      case EntryState.LeadingPoint:
-      case EntryState.NumberWithPoint:
-      case EntryState.Result:
-        // Cannot enter a point now
-        return;
+    var expression = _expression.appendPoint();
+    if (expression != null) {
+      setState(() {
+        pushExpression(expression);
+      });
     }
-    setState(() {
-      pushPoint();
-      _keyPressHistory.add(".");
-    });
+  }
+
+  onPlusTap() {
+    var expression = _expression.appendOperation(Operation.Addition);
+    if (expression != null) {
+      setState(() {
+        pushExpression(expression);
+      });
+    }
+  }
+
+  onMinusTap() {
+    var expression = _expression.appendMinus();
+    if (expression != null) {
+      setState(() {
+        pushExpression(expression);
+      });
+    }
+  }
+
+  onMultTap() {
+    var expression = _expression.appendOperation(Operation.Multiplication);
+    if (expression != null) {
+      setState(() {
+        pushExpression(expression);
+      });
+    }
+  }
+
+  onDivTap() {
+    var expression = _expression.appendOperation(Operation.Division);
+    if (expression != null) {
+      setState(() {
+        pushExpression(expression);
+      });
+    }
+  }
+
+  onEqualsTap() {
+    var resultExpression = _expression.computeResult();
+    if (resultExpression != null) {
+      setState(() {
+        setResult(resultExpression);
+      });
+    }
   }
 
   onDelTap() {
     setState(() {
-      popState();
-      popTokenList();
-      if (_keyPressHistory.length > 0) {
-        _keyPressHistory.removeLast();
-      }
+      popCalcExpression();
     });
-  }
-
-  onPlusTap() {
-    switch (_entryState) {
-      case EntryState.Start:
-      case EntryState.LeadingNeg:
-      case EntryState.LeadingPoint:
-        // Cannot enter operation now.
-        return;
-      case EntryState.Number:
-      case EntryState.NumberWithPoint:
-      case EntryState.Result:
-        pushState(EntryState.Start);
-        break;
-    }
-    setState(() {
-      pushOperation(Operation.Addition);
-      _keyPressHistory.add(" + ");
-    });
-  }
-
-  onMinusTap() {
-    switch (_entryState) {
-      case EntryState.Start:
-        pushState(EntryState.LeadingNeg);
-        break;
-      case EntryState.LeadingNeg:
-      case EntryState.LeadingPoint:
-        // Cannot enter operation now.
-        return;
-      case EntryState.Number:
-      case EntryState.NumberWithPoint:
-      case EntryState.Result:
-        pushState(EntryState.Start);
-        break;
-    }
-    setState(() {
-      if (_entryState == EntryState.LeadingNeg) {
-        pushLeadingNeg();
-        _keyPressHistory.add("-");
-      } else {
-        pushOperation(Operation.Subtraction);
-        _keyPressHistory.add(" - ");
-      }
-    });
-  }
-
-  onMultTap() {
-    switch (_entryState) {
-      case EntryState.Start:
-      case EntryState.LeadingNeg:
-      case EntryState.LeadingPoint:
-        // Cannot enter operation now.
-        return;
-      case EntryState.Number:
-      case EntryState.NumberWithPoint:
-      case EntryState.Result:
-        pushState(EntryState.Start);
-        break;
-    }
-    setState(() {
-      pushOperation(Operation.Multiplication);
-      _keyPressHistory.add(" \u00D7 ");
-    });
-  }
-
-  onDivTap() {
-    switch (_entryState) {
-      case EntryState.Start:
-      case EntryState.LeadingNeg:
-      case EntryState.LeadingPoint:
-        // Cannot enter operation now.
-        return;
-      case EntryState.Number:
-      case EntryState.NumberWithPoint:
-      case EntryState.Result:
-        pushState(EntryState.Start);
-        break;
-    }
-    setState(() {
-      pushOperation(Operation.Division);
-      _keyPressHistory.add(" \u00F7 ");
-    });
-  }
-
-  onEqualsTap() {
-    switch (_entryState) {
-      case EntryState.Start:
-      case EntryState.LeadingNeg:
-      case EntryState.LeadingPoint:
-      case EntryState.Result:
-        // Cannot enter equals now.
-        return;
-      case EntryState.Number:
-      case EntryState.NumberWithPoint:
-        break;
-    }
-    setState(() {
-      computeResult();
-    });
-  }
-
-  String buildDisplayContents() {
-    var buffer = new StringBuffer("");
-    buffer.writeAll(_keyPressHistory);
-    return buffer.toString();
   }
 
   @override
@@ -245,8 +123,9 @@ class _CalculatorState extends State<Calculator> {
     return new Scaffold(
         appBar: new AppBar(title: new Text('Calculator')),
         body: new Column(children: <Widget>[
-          // Give the key-pad 3/5 of the vertical space.
-          new CalcDisplay(2, buildDisplayContents()),
+          // Give the key-pad 3/5 of the vertical space and the display
+          // 2/5.
+          new CalcDisplay(2, _expression.toString()),
           new KeyPad(3, calcState: this)
         ]));
   }
