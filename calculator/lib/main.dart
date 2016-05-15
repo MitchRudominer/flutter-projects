@@ -176,7 +176,7 @@ class MainKeyPad extends StatelessWidget {
         child: new Material(
             type: MaterialType.canvas,
             elevation: 12,
-            color: Colors.indigo[400],
+            color: Colors.grey[800],
             child: new Column(children: <Widget>[
               new KeyRow(<Widget>[
                 new NumberKey(7, calcState),
@@ -241,15 +241,12 @@ class CalcKey extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return new Flexible(child: new Container(
-        decoration:
-            new BoxDecoration(border: new Border.all(color: Colors.white)),
-        child: new InkWell(
+        child: new InkResponse(
             onTap: this.onTap,
             child: new Center(child: new Text(this.text,
                 style: new TextStyle(
-                    color: Colors.black,
-                    fontSize: 24.0,
-                    fontWeight: FontWeight.bold))))));
+                    color: Colors.white,
+                    fontSize: 32.0))))));
   }
 }
 
